@@ -26,7 +26,7 @@ try:
     genai.configure(api_key=api_key)
     
     # Cấu hình Model mặc định (Dùng bản Flash cho nhanh và ổn định)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
 except Exception as e:
     st.error("⚠️ Lỗi hệ thống: Giáo viên chưa cấu hình API Key trong phần Secrets.")
     st.stop()

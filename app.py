@@ -114,7 +114,7 @@ with col2:
 
             # Gọi Gemini trả lời
             try:
-                model = genai.GenerativeModel("gemini-pro")
+                model = genai.GenerativeModel("gemini-1.5-flash")
                 response = model.generate_content(context_prompt)
                 ai_reply = response.text
                 

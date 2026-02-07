@@ -10,30 +10,104 @@ st.set_page_config(page_title="Thống kê Lớp 10", layout="wide")
 st.title("📊 Phân Tích Số Liệu & Trợ Lý AI - Toán 10")
 st.markdown("---")
 
-# --- Sidebar: Cài đặt API Key ---
+# --- Sidebar: Cài đặt API Key & Chọn Model ---
 with st.sidebar:
-    st.header("Cài đặt")
-    api_key = st.text_input("Nhập Google API Key của bạn", type="password")
-    st.info("Nhập API Key để Chatbot hoạt động. Lấy key tại aistudio.google.com")
+    st.header("Cài đặt hệ thống")
+    api_key = st.text_input("Nhập Google API Key", type="password")
+    
+    # === TÍNH NĂNG MỚI: Tự động dò tìm Model ===
+    selected_model = "gemini-pro" # Mặc định
+    if api_key:
+        try:
+            genai.configure(api_key=api_key)
+            # Lấy danh sách các model mà Key này dùng được
+            available_models = []
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    # Chỉ lấy tên ngắn gọn (bỏ chữ models/)
+                    available_models.append(m.name.replace("models/", ""))
+            
+            if available_models:
+                st.success(f"Đã tìm thấy {len(available_models)} model!")
+                # Cho người dùng chọn model xịn nhất (ví dụ gemini-3.0)
+                selected_model = st.selectbox("Chọn phiên bản AI:", available_models, index=0)
+            else:
+                st.error("Không tìm thấy model nào. Kiểm tra lại API Key!")
+        except Exception as e:
+            st.error(f"Lỗi API Key: {e}")
+
     st.markdown("---")
-    st.write("Hướng dẫn: Nhập các số liệu cách nhau bởi dấu phẩy. Ví dụ: 5, 8, 9, 10, 12")
+    st.write("Hướng dẫn: Nhập các số liệu cách nhau bởi dấu phẩy.")
 
 # --- Chia cột giao diện ---
 col1, col2 = st.columns([1, 1])
 
-# === PHẦN 1: TÍNH TOÁN & BIỂU ĐỒ (CỘT TRÁI) ===
+# === PHẦN 1: TÍNH TOÁN (CỘT TRÁI) ===
 with col1:
     st.header("🧮 Nhập Số Liệu")
-    data_input = st.text_area("Nhập dãy số (cách nhau dấu phẩy):", "6, 8, 9, 10, 5, 7, 8, 9, 10, 6")
+    data_input = st.text_area("Nhập dãy số:", "6, 8, 9, 10, 5, 7, 8, 9, 10, 6")
     
     if data_input:
         try:
-            # Xử lý dữ liệu đầu vào
             raw_data = [float(x.strip()) for x in data_input.split(',')]
             df = pd.DataFrame(raw_data, columns=['GiaTri'])
             
-            # Tính toán các chỉ số
-            mean_val = np.mean(raw_data)
+            # Tính toán
+            stats = {
+                "Trung bình": np.mean(raw_data),
+                "Phương sai (S²)": np.var(raw_data, ddof=1),
+                "Độ lệch chuẩn (S)": np.std(raw_data, ddof=1),
+                "Khoảng biến thiên (R)": np.max(raw_data) - np.min(raw_data)
+            }
+            st.table(pd.DataFrame(stats.items(), columns=["Chỉ số", "Giá trị"]))
+            
+            # Vẽ biểu đồ
+            fig = px.box(df, y="GiaTri", points="all", title="Biểu đồ hộp (Boxplot)")
+            st.plotly_chart(fig, use_container_width=True)
+            
+        except ValueError:
+            st.error("Dữ liệu nhập vào sai định dạng!")
+
+# === PHẦN 2: AI CHATBOT (CỘT PHẢI) ===
+with col2:
+    st.header(f"🤖 Trợ lý AI ({selected_model})")
+    
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if prompt := st.chat_input("Hỏi thầy AI..."):
+        if not api_key:
+            st.warning("Vui lòng nhập API Key trước!")
+            st.stop()
+            
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # Context Prompt
+        context = f"""
+        Dữ liệu hiện tại: {data_input}.
+        Hãy trả lời câu hỏi: {prompt}
+        """
+
+        try:
+            # Gọi đúng model người dùng đã chọn
+            model = genai.GenerativeModel(selected_model)
+            response = model.generate_content(context)
+            ai_reply = response.text
+            
+            with st.chat_message("assistant"):
+                st.markdown(ai_reply)
+            st.session_state.messages.append({"role": "assistant", "content": ai_reply})
+            
+        except Exception as e:
+            # === QUAN TRỌNG: In lỗi chi tiết ra màn hình ===
+            st.error(f"🔴 CÓ LỖI XẢY RA: {e}")
+            st.info("Mẹo: Hãy thử chọn model khác ở cột bên trái (ví dụ: gemini-pro hoặc gemini-2.0-flash).")
             min_val = np.min(raw_data)
             max_val = np.max(raw_data)
             range_val = max_val - min_val

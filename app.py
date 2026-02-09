@@ -11,7 +11,7 @@ st.set_page_config(page_title="Tự học: Độ phân tán", page_icon="🎓")
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
 except:
     st.error("⚠️ Giáo viên chưa thiết lập API Key trong Secrets.")
     st.stop()
